@@ -1,4 +1,5 @@
 ﻿using HtmlAgilityPack;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -10,33 +11,37 @@ namespace BOMScraper
 {
     class Program
     {
+
         static async Task Main(string[] args)
         {
-            var urlList = new List<string>()
+
+            var result = await DownloadPageAsync(@"http://www.bom.gov.au/index.php");
+            var htmlDoc = new HtmlDocument();
+            htmlDoc.LoadHtml(result);
+
+            var capitalNodes = htmlDoc.DocumentNode.Descendants(0).Where(n => n.HasClass("capital")).ToList();
+
+            var cities = new List<string>() { "Sydney", "Melbourne", "Brisbane" };
+
+
+            foreach (var node in capitalNodes)
             {
-                 @"http://m.bom.gov.au/vic/melbourne/",
-                 @"http://m.bom.gov.au/nsw/sydney/",
-                 @"http://m.bom.gov.au/qld/brisbane/"
-            };
-            var sb = new StringBuilder();
 
-            foreach (string url in urlList)
-            {
-                var result = await DownloadPageAsync(url);
-                var htmlDoc = new HtmlDocument();
-                htmlDoc.LoadHtml(result);
+                var city = node.ChildNodes.Elements("h3").FirstOrDefault().InnerText;
 
-                var temp = htmlDoc.DocumentNode.SelectSingleNode("//div[@class='current-temp']").InnerText.Replace(@"&deg;", "").Replace(@"\t", "").Replace(@"\n", "").Trim();
-                var location = htmlDoc.DocumentNode.SelectSingleNode("//div[@class='location-name has-icon']").InnerText.Replace(@"\t", "").Replace(@"\n", "").Trim();
+                if (!cities.Contains(city))
+                    continue;
 
-                var precis = htmlDoc.DocumentNode.SelectSingleNode("//div[@class='summary has-icon']").InnerText.Replace(@"\t", "").Replace(@"\n", "").Trim();
-                var city = url.Split('/').Reverse().Skip(1).Take(1).First().ToTitleCase();
+                var now = node.Descendants(0).Where(n => n.HasClass("now")).FirstOrDefault().Descendants(0).Where(m => m.HasClass("val")).FirstOrDefault().InnerText.Replace("&deg", "").Replace(";","");
+                var precis = node.Descendants(0).Where(n => n.HasClass("precis")).FirstOrDefault().InnerText;
 
-                Console.WriteLine("------------------------");
+
                 Console.WriteLine($"City: { city }");
-                Console.WriteLine($"Temperature: { temp }");
+                Console.WriteLine($"Temperature: { now }");
                 Console.WriteLine(precis);
+                Console.WriteLine("--------------------------");
             }
+
             Console.ReadKey();
         }
 
